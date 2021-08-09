@@ -13,7 +13,6 @@ func main() {
 
     flag.Parse()
 
-    //fmt.Println("url:", *urlptr)
     resp, err := http.Get(*urlptr)
     if err != nil {
 	panic(err)
