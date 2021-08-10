@@ -9,7 +9,7 @@ import (
 
 func main() {
 
-	urlptr := flag.String("url", "http://google.com", "url to be crawled")
+    urlptr := flag.String("url", "http://google.com", "url to be crawled")
 
     flag.Parse()
 
