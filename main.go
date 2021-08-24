@@ -1,33 +1,15 @@
 package main
 
 import (
-    "flag"
-    "fmt"
-    "bufio"
-    "net/http"
+	"flag"
 )
 
 func main() {
 
-    urlptr := flag.String("url", "http://google.com", "url to be crawled")
+	urlptr := flag.String("url", "https://google.com", "url to be crawled")
 
-    flag.Parse()
+	flag.Parse()
 
-    resp, err := http.Get(*urlptr)
-    if err != nil {
-	panic(err)
-    }
+	colect(urlptr)
 
-    defer resp.Body.Close()
-
-    fmt.Println("Resposnse Status", resp.Status)
-
-    scanner := bufio.NewScanner(resp.Body)
-    for i := 0; scanner.Scan(); i++ {
-	fmt.Println(scanner.Text())
-    }
-
-    if err := scanner.Err(); err != nil {
-	panic(err)
-    }
 }
