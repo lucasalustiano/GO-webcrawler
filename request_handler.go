@@ -1,12 +1,13 @@
 package main
 
 import (
-	"bufio"
 	"bytes"
 	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
+	"path/filepath"
+	"strconv"
 
 	"github.com/PuerkitoBio/goquery"
 )
@@ -20,29 +21,44 @@ func colect(urlptr *string) {
 
 	b, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		panic(err)
+		log.Fatal("Error:", err)
 	}
 
 	body1, body2 := bytes.NewReader(b), bytes.NewReader(b)
 
-	colectHtml(body1)
-	colectlinks(body2)
+	writeHtml(body1, "index.html")
+	bodyLinks := colectlinks(body2)
+	downloadlinks(bodyLinks)
 }
 
-func colectHtml(body1 *bytes.Reader) {
-	index, err := os.Create("index.html")
+func writeHtml(body *bytes.Reader, filename string) {
+	index, err := os.Create(filename)
 	if err != nil {
-		log.Fatal("Error criando o html")
+		log.Fatal("Error while creating html:", filename)
 	}
 
 	defer index.Close()
-	index.ReadFrom(body1)
+	index.ReadFrom(body)
 }
 
-func colectlinks(body2 *bytes.Reader) {
-	doc, err := goquery.NewDocumentFromReader(body2)
+func clear() {
+	files, err := filepath.Glob("*.html")
 	if err != nil {
-		log.Fatal("Error no parser pro goquery")
+		panic(err)
+	}
+	for _, f := range files {
+		if err := os.Remove(f); err != nil {
+			panic(err)
+		}
+	}
+}
+
+func colectlinks(body *bytes.Reader) []string {
+	clear()
+
+	doc, err := goquery.NewDocumentFromReader(body)
+	if err != nil {
+		log.Fatal("Error while parsing body to goqyery")
 	}
 
 	s := []string{}
@@ -51,26 +67,19 @@ func colectlinks(body2 *bytes.Reader) {
 		s = append(s, href)
 	})
 
-	vl := []string{}
-	for _, href := range s {
-		_, err := http.Get(href)
+	return s
+}
+
+func downloadlinks(bodyLinks []string) {
+	for i, href := range bodyLinks {
+		resp, err := http.Get(href)
 		if err == nil {
-			vl = append(vl, href)
+			b, err := ioutil.ReadAll(resp.Body)
+			if err != nil {
+				log.Fatal("Error:", err)
+			}
+			body := bytes.NewReader(b)
+			writeHtml(body, strconv.Itoa(i)+".html")
 		}
 	}
-
-	file, err := os.OpenFile("test.txt", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
-
-	if err != nil {
-		log.Fatalf("failed creating file: %s", err)
-	}
-
-	datawriter := bufio.NewWriter(file)
-
-	for _, link := range vl {
-		_, _ = datawriter.WriteString(link + "\n")
-	}
-
-	datawriter.Flush()
-	file.Close()
 }
