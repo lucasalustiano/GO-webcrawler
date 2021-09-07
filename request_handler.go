@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"fmt"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -26,9 +27,10 @@ func colect(urlptr *string) {
 
 	body1, body2 := bytes.NewReader(b), bytes.NewReader(b)
 
+	clear()
 	writeHtml(body1, "index.html")
 	bodyLinks := colectlinks(body2)
-	downloadlinks(bodyLinks)
+	handleBodylinks(bodyLinks)
 }
 
 func writeHtml(body *bytes.Reader, filename string) {
@@ -54,7 +56,6 @@ func clear() {
 }
 
 func colectlinks(body *bytes.Reader) []string {
-	clear()
 
 	doc, err := goquery.NewDocumentFromReader(body)
 	if err != nil {
@@ -67,19 +68,52 @@ func colectlinks(body *bytes.Reader) []string {
 		s = append(s, href)
 	})
 
+	s = validateLinks(s)
+
 	return s
 }
 
-func downloadlinks(bodyLinks []string) {
-	for i, href := range bodyLinks {
-		resp, err := http.Get(href)
+func validateLinks(s []string) []string {
+	// TODO: adaptar downloadBodyLinks para fazer isso aqui
+	// TODO: fazer a func de go routine parar
+	r := []string{}
+	for _, link := range s {
+		_, err := http.Get(link)
 		if err == nil {
-			b, err := ioutil.ReadAll(resp.Body)
-			if err != nil {
-				log.Fatal("Error:", err)
-			}
-			body := bytes.NewReader(b)
-			writeHtml(body, strconv.Itoa(i)+".html")
+			r = append(r, link)
 		}
 	}
+
+	return r
+}
+
+func handleBodylinks(bodyLinks []string) {
+	c := make(chan string)
+	go downloadBodyLinks(bodyLinks, c)
+
+	for l := range c {
+		fmt.Println(l)
+	}
+}
+
+func downloadBodyLinks(bodyLinks []string, c chan string) {
+	for i, link := range bodyLinks {
+		resp, err := http.Get(link)
+		if err != nil {
+			c <- "Error downloading: " + link
+			return
+		}
+
+		b, err := ioutil.ReadAll(resp.Body)
+		if err != nil {
+			fmt.Println("Error:", err)
+		}
+
+		body := bytes.NewReader(b)
+		writeHtml(body, strconv.Itoa(i)+".html")
+
+		c <- "Download complete: " + link
+	}
+
+	close(c)
 }
